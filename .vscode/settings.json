@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "ip.h": "c",
+        "unistd.h": "c",
+        "string.h": "c",
+        "socket.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "in.h": "c",
+        "errno.h": "c"
+    }
+}
