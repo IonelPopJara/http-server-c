@@ -189,6 +189,11 @@ int main()
 	char* reqPath = strtok(readBuffer, " ");
 	reqPath = strtok(NULL, " ");
 
+	char* reqPathCopy = strdup(reqPath);
+	
+	char* mainPath = strtok(reqPathCopy, "/");
+	char* content = strtok(NULL, "");
+
 	int bytesSent;
 
 	/**
@@ -196,10 +201,18 @@ int main()
 	 * If successful, returns 0 or greater indicating the number of bytes sent, otherwise
 	 * returns -1.
 	 */
-	if (strcmp(reqPath, "/") == 0)
+	if (strcmp(reqPathCopy, "/") == 0)
 	{
 		char *res = "HTTP/1.1 200 OK\r\n\r\n"; // HTTP response
 		bytesSent = send(client_fd, res, strlen(res), 0);
+	}
+	if (strcmp(reqPathCopy, "/echo") == 0)
+	{
+		int contentLength = strlen(content);
+		char response[512];
+		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLength, content);
+		printf("Sending response: %s\n", response);
+		bytesSent = send(client_fd, response, strlen(response), 0);
 	}
 	else
 	{
