@@ -35,6 +35,12 @@
 
 #define PORT 4221
 
+/**
+ * Create a thread function
+ */
+
+void handle_connection(int client_fd);
+
 int main()
 {
 
@@ -156,13 +162,33 @@ int main()
 		return 1;
 	}
 
-	struct sockaddr_in client_addr;			   // Variable of type struct sockaddr_in to store the client address
-	int client_addr_len = sizeof(client_addr); // Variable to store the length of the struct client_addr
+	while (1)
+	{
+		printf("Waiting for clients to connect...\n");
 
-	printf("Waiting for a client to connect...\n");
+		struct sockaddr_in client_addr;			   // Variable of type struct sockaddr_in to store the client address
+		int client_addr_len = sizeof(client_addr); // Variable to store the length of the struct client_addr
 
-	int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len); // Variable to represent the file descriptor (fd) of the client socket
-	printf("Client connected\n");
+		int client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len); // Variable to represent the file descriptor (fd) of the client socket
+
+		if (client_fd == -1)
+		{
+			printf("Failed to connect: %s \n", strerror(errno));
+			return 1;
+		}
+
+		printf("Client connected\n");
+
+		// If the current process is the child process
+		if (!fork())
+		{
+			close(server_fd);
+			handle_connection(client_fd);
+			close(client_fd);
+			exit(0);
+		}
+		close(client_fd);
+	}
 
 	/**
 	 * \r\n\r\n represents the CRLF:
@@ -174,6 +200,13 @@ int main()
 	 *
 	 * - https://developer.mozilla.org/en-US/docs/Glossary/CRLF
 	 */
+
+	return 0;
+}
+
+void handle_connection(int client_fd)
+{
+	printf("Handle Connection\n");
 
 	/**
 	 * `recv()` receives data on the client_fd socket and stores it in the readBuffer buffer.
@@ -187,14 +220,16 @@ int main()
 	if (bytesReceived == -1)
 	{
 		printf("Receiving failed: %s \n", strerror(errno));
-		return 1;
+		// return NULL;
+		exit(1);
 	}
 
 	// char *readBufferCopy = strdup(readBuffer); // For debug purposes
 
+
 	// Extract the path -> "GET /some/path HTTP/1.1..."
-	char *reqPath = strtok(readBuffer, " ");	// -> "GET"
-	reqPath = strtok(NULL, " ");				// -> "/some/path"
+	char *reqPath = strtok(readBuffer, " "); // -> "GET"
+	reqPath = strtok(NULL, " ");			 // -> "/some/path"
 
 	int bytesSent;
 
@@ -214,7 +249,7 @@ int main()
 	{
 		// Parse the content
 		reqPath = strtok(reqPath, "/"); // reqPath -> echo
-		reqPath = strtok(NULL, ""); // reqPath -> foo/bar
+		reqPath = strtok(NULL, "");		// reqPath -> foo/bar
 		int contentLength = strlen(reqPath);
 
 		char response[512];
@@ -222,7 +257,7 @@ int main()
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
 	}
-	else if(strcmp(reqPath, "/user-agent") == 0)
+	else if (strcmp(reqPath, "/user-agent") == 0)
 	{
 		// Parse headers
 		reqPath = strtok(NULL, "\r\n"); // reqPath -> HTTP/1.1
@@ -231,14 +266,13 @@ int main()
 
 		// Parse the body
 		char *body = strtok(reqPath, " "); // body -> User-Agent:
-		body = strtok(NULL, " "); // body -> curl/7.81.0
+		body = strtok(NULL, " ");		   // body -> curl/7.81.0
 		int contentLength = strlen(body);
 
 		char response[512];
 		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLength, body);
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
-
 	}
 	else
 	{
@@ -249,10 +283,11 @@ int main()
 	if (bytesSent < 0)
 	{
 		printf("Send failed\n");
-		return 1;
+		exit(1);
+		// return;
 	}
-
-	close(server_fd);
-
-	return 0;
+	else
+	{
+		return;
+	}
 }
