@@ -13,7 +13,7 @@
  * 1. What is a file descriptor (fd)?
  *
  * 		According to Dave (ChatGPT):
- * 		"In Unix-like operating systems, including Linux,
+ * 		"In Unix-like operating systems, including ,
  * 		file descriptors are integer values that the operating
  * 		system uses to uniquely identify an open file or a
  * 		communication channel. These channels can include
@@ -23,7 +23,7 @@
  * 		It is essentially an identifier for operations such
  * 		as binding, listening, accepting connections, etc.
  *
- * 2. What is big-endian and little-endian?
+ * 2. What is big-endian and little-endian?Linux
  *
  * 		Some processors store the least significant bytes first,
  * 		`Little-endian`, while others store the most significant bytes first,
@@ -176,23 +176,25 @@ int main()
 	 */
 
 	/**
-	 * `recv()` receives data on the client_fd socket and stores it in the res buffer.
+	 * `recv()` receives data on the client_fd socket and stores it in the readBuffer buffer.
 	 * If successful, returns the length of the message or datagram in bytes, otherwise
 	 * returns -1.
 	 */
 
 	char readBuffer[1024];
-	char path[512];
 	int bytesReceived = recv(client_fd, readBuffer, sizeof(readBuffer), 0);
 
-	// Extract the path
-	char* reqPath = strtok(readBuffer, " ");
-	reqPath = strtok(NULL, " ");
+	if (bytesReceived == -1)
+	{
+		printf("Receiving failed: %s \n", strerror(errno));
+		return 1;
+	}
 
-	char* reqPathCopy = strdup(reqPath);
-	
-	char* mainPath = strtok(reqPathCopy, "/");
-	char* content = strtok(NULL, "");
+	// char *readBufferCopy = strdup(readBuffer); // For debug purposes
+
+	// Extract the path -> "GET /some/path HTTP/1.1..."
+	char *reqPath = strtok(readBuffer, " ");	// -> "GET"
+	reqPath = strtok(NULL, " ");				// -> "/some/path"
 
 	int bytesSent;
 
@@ -201,18 +203,42 @@ int main()
 	 * If successful, returns 0 or greater indicating the number of bytes sent, otherwise
 	 * returns -1.
 	 */
-	if (strcmp(reqPathCopy, "/") == 0)
+
+	if (strcmp(reqPath, "/") == 0)
 	{
 		char *res = "HTTP/1.1 200 OK\r\n\r\n"; // HTTP response
+		printf("Sending response: %s\n", res);
 		bytesSent = send(client_fd, res, strlen(res), 0);
 	}
-	if (strcmp(reqPathCopy, "/echo") == 0)
+	else if (strncmp(reqPath, "/echo/", 6) == 0)
 	{
-		int contentLength = strlen(content);
+		// Parse the content
+		reqPath = strtok(reqPath, "/"); // reqPath -> echo
+		reqPath = strtok(NULL, ""); // reqPath -> foo/bar
+		int contentLength = strlen(reqPath);
+
 		char response[512];
-		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLength, content);
+		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLength, reqPath);
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
+	}
+	else if(strcmp(reqPath, "/user-agent") == 0)
+	{
+		// Parse headers
+		reqPath = strtok(NULL, "\r\n"); // reqPath -> HTTP/1.1
+		reqPath = strtok(NULL, "\r\n"); // reqPath -> Host: 127.0.1:4221
+		reqPath = strtok(NULL, "\r\n"); // reqPath -> User-Agent: curl/7.81.0
+
+		// Parse the body
+		char *body = strtok(reqPath, " "); // body -> User-Agent:
+		body = strtok(NULL, " "); // body -> curl/7.81.0
+		int contentLength = strlen(body);
+
+		char response[512];
+		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", contentLength, body);
+		printf("Sending response: %s\n", response);
+		bytesSent = send(client_fd, response, strlen(response), 0);
+
 	}
 	else
 	{
