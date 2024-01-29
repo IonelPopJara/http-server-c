@@ -232,6 +232,8 @@ void handle_connection(int client_fd)
 	char readBuffer[1024];
 	int bytesReceived = recv(client_fd, readBuffer, sizeof(readBuffer), 0);
 
+	// printf("\n\nData: \n%s\n\n", readBuffer);
+
 	if (bytesReceived == -1)
 	{
 		printf("Receiving failed: %s \n", strerror(errno));
@@ -239,7 +241,10 @@ void handle_connection(int client_fd)
 		exit(1);
 	}
 
-	// char *readBufferCopy = strdup(readBuffer); // For debug purposes
+	char *method = strdup(readBuffer); // "GET /some/path HTTP/1.1..."
+	char *content = strdup(readBuffer); // "GET /some/path HTTP/1.1..."
+	method = strtok(method, " "); // GET POST PATCH and so on
+	printf("Method: %s\n", method);
 
 	// Extract the path -> "GET /some/path HTTP/1.1..."
 	char *reqPath = strtok(readBuffer, " "); // -> "GET"
@@ -288,7 +293,7 @@ void handle_connection(int client_fd)
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
 	}
-	else if (strncmp(reqPath, "/files/", 7) == 0)
+	else if (strncmp(reqPath, "/files/", 7) == 0 && strcmp(method, "GET") == 0)
 	{
 		// Parse the file path
 		char *filename = strtok(reqPath, "/");
@@ -334,6 +339,60 @@ void handle_connection(int client_fd)
 		// Return contents
 		char response[1024];
 		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", data_size, data);
+		printf("Sending response: %s\n", response);
+		bytesSent = send(client_fd, response, strlen(response), 0);
+	}
+	else if (strncmp(reqPath, "/files/", 7) == 0 && strcmp(method, "POST") == 0)
+	{
+		method = strtok(NULL, "\r\n"); // HTTP 1.1
+		method = strtok(NULL, "\r\n"); // Content-Type
+		method = strtok(NULL, "\r\n"); // User-Agent
+		method = strtok(NULL, "\r\n"); // Content-Length: X
+		char *contentLengthStr = strtok(method, " ");
+		contentLengthStr = strtok(NULL, " ");
+
+		int contentLength = atoi(contentLengthStr);
+
+		// Parse the file path
+		char *filename = strtok(reqPath, "/");
+		filename = strtok(NULL, "");
+
+		// Get the contents
+		content = strtok(content, "\r\n");
+		content = strtok(NULL, "\r\n");
+		content = strtok(NULL, "\r\n");
+		content = strtok(NULL, "\r\n");
+		content = strtok(NULL, "\r\n");
+		content = strtok(NULL, "\r\n");
+
+		printf("\n---\nCreate a file %s with content length: %d\n\n %s\n---\n", filename, contentLength, content);
+
+		// Open the file in write binary mode
+		FILE *fp = fopen(filename, "wb");
+		if (!fp)
+		{
+			// If the file could not be created/opened
+			printf("File could not be opened");
+			char *res = "HTTP/1.1 404 Not Found\r\n\r\n"; // HTTP response
+			bytesSent = send(client_fd, res, strlen(res), 0);
+		}
+		else
+		{
+			printf("Opening file %s\n", filename);
+		}
+
+		// Write the contents
+		if (fwrite(content, 1, contentLength, fp) != contentLength)
+		{
+			printf("Error writing the data");
+		}
+
+		fclose(fp);
+
+		// Return contents
+		// Return contents
+		char response[1024];
+		sprintf(response, "HTTP/1.1 201 Created\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", contentLength, content);
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
 	}
