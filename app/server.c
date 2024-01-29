@@ -41,8 +41,23 @@
 
 void handle_connection(int client_fd);
 
-int main()
+int main(int argc, char **argv)
 {
+	char *directory = ".";
+	if (argc >= 3)
+	{
+		if (strcmp(argv[1], "--directory") == 0)
+		{
+			directory = argv[2];
+		}
+	}
+	printf("Setting up directory to %s\n", directory);
+
+	if (chdir(directory) < 0)
+	{
+		printf("Failed to set current dir");
+		return 1;
+	}
 
 	/**
 	 * Disable output buffering.
@@ -226,7 +241,6 @@ void handle_connection(int client_fd)
 
 	// char *readBufferCopy = strdup(readBuffer); // For debug purposes
 
-
 	// Extract the path -> "GET /some/path HTTP/1.1..."
 	char *reqPath = strtok(readBuffer, " "); // -> "GET"
 	reqPath = strtok(NULL, " ");			 // -> "/some/path"
@@ -274,6 +288,55 @@ void handle_connection(int client_fd)
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
 	}
+	else if (strncmp(reqPath, "/files/", 7) == 0)
+	{
+		// Parse the file path
+		char *filename = strtok(reqPath, "/");
+		filename = strtok(NULL, "");
+
+		// Open the file and check if the file exists
+		FILE *fp = fopen(filename, "rb");
+		if (!fp)
+		{
+			// If it doesn't exist, return 404
+			printf("File not found");
+			char *res = "HTTP/1.1 404 Not Found\r\n\r\n"; // HTTP response
+			bytesSent = send(client_fd, res, strlen(res), 0);
+		}
+		else
+		{
+			printf("Opening file %s\n", filename);
+		}
+
+		// Read in binary and set the cursor at the end
+		if (fseek(fp, 0, SEEK_END) < 0)
+		{
+			printf("Error reading the document\n");
+		}
+
+		// Get the size of the file
+		size_t data_size = ftell(fp);
+
+		// Rewind the cursor back
+		rewind(fp);
+
+		// Allocate enough memory for the contents
+		void *data = malloc(data_size);
+
+		// Fill in the content
+		if (fread(data, 1, data_size, fp) != data_size)
+		{
+			printf("Error reading the document\n");
+		}
+
+		fclose(fp);
+
+		// Return contents
+		char response[1024];
+		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", data_size, data);
+		printf("Sending response: %s\n", response);
+		bytesSent = send(client_fd, response, strlen(response), 0);
+	}
 	else
 	{
 		char *res = "HTTP/1.1 404 Not Found\r\n\r\n"; // HTTP response
@@ -284,7 +347,6 @@ void handle_connection(int client_fd)
 	{
 		printf("Send failed\n");
 		exit(1);
-		// return;
 	}
 	else
 	{
