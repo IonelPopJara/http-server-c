@@ -7,6 +7,9 @@
 #include <errno.h>
 #include <unistd.h>
 
+// Test: curl -v -X POST http://localhost:4221/files/readme.txt -d 'Fuck this shit'
+// Test: 
+
 /**
  * Important things I did not know:
  *
@@ -243,6 +246,7 @@ void handle_connection(int client_fd)
 
 	char *method = strdup(readBuffer); // "GET /some/path HTTP/1.1..."
 	char *content = strdup(readBuffer); // "GET /some/path HTTP/1.1..."
+	printf("Content: %s\n", content);
 	method = strtok(method, " "); // GET POST PATCH and so on
 	printf("Method: %s\n", method);
 
@@ -338,7 +342,7 @@ void handle_connection(int client_fd)
 
 		// Return contents
 		char response[1024];
-		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", data_size, data);
+		sprintf(response, "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %ld\r\n\r\n%s", data_size, (char *)data);
 		printf("Sending response: %s\n", response);
 		bytesSent = send(client_fd, response, strlen(response), 0);
 	}
@@ -347,7 +351,9 @@ void handle_connection(int client_fd)
 		method = strtok(NULL, "\r\n"); // HTTP 1.1
 		method = strtok(NULL, "\r\n"); // Content-Type
 		method = strtok(NULL, "\r\n"); // User-Agent
+		method = strtok(NULL, "\r\n"); // Accept: */*
 		method = strtok(NULL, "\r\n"); // Content-Length: X
+
 		char *contentLengthStr = strtok(method, " ");
 		contentLengthStr = strtok(NULL, " ");
 
@@ -358,12 +364,17 @@ void handle_connection(int client_fd)
 		filename = strtok(NULL, "");
 
 		// Get the contents
-		content = strtok(content, "\r\n");
-		content = strtok(NULL, "\r\n");
-		content = strtok(NULL, "\r\n");
-		content = strtok(NULL, "\r\n");
-		content = strtok(NULL, "\r\n");
-		content = strtok(NULL, "\r\n");
+		content = strtok(content, "\r\n"); // Content: POST /files/dumpty_yikes_dooby_237 HTTP/1.1
+		printf("\n\n\nContent: %s\n\n\n", content);
+		content = strtok(NULL, "\r\n"); // Host: localhost:4221
+		content = strtok(NULL, "\r\n"); // User-Agent: curl/7.81.0
+		content = strtok(NULL, "\r\n"); // Accept: */*
+		content = strtok(NULL, "\r\n"); // Content-Length: 51
+		printf("\n\n\nContent: %s\n\n\n", content);
+		content = strtok(NULL, "\r\n"); // Content-Type: application/x-www-form-urlencoded
+		printf("\n\n\nContent: %s\n\n\n", content);
+		content = strtok(NULL, "\r\n"); // Content-Type: application/x-www-form-urlencoded
+		printf("\n\n\nContent: %s\n\n\n", content);
 
 		printf("\n---\nCreate a file %s with content length: %d\n\n %s\n---\n", filename, contentLength, content);
 
