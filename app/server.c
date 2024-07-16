@@ -182,7 +182,8 @@ int main(int argc, char **argv)
 
 	while (1)
 	{
-		printf("Waiting for clients to connect...\n");
+		printf("Server started.\n");
+		printf("\tWaiting for clients to connect...\n");
 
 		struct sockaddr_in client_addr;			   // Variable of type struct sockaddr_in to store the client address
 		int client_addr_len = sizeof(client_addr); // Variable to store the length of the struct client_addr
@@ -224,7 +225,8 @@ int main(int argc, char **argv)
 
 void handle_connection(int client_fd)
 {
-	printf("Handle Connection\n");
+	// printf("Handle Connection\n");
+	printf("\n");
 
 	/**
 	 * `recv()` receives data on the client_fd socket and stores it in the readBuffer buffer.
@@ -365,16 +367,12 @@ void handle_connection(int client_fd)
 
 		// Get the contents
 		content = strtok(content, "\r\n"); // Content: POST /files/dumpty_yikes_dooby_237 HTTP/1.1
-		printf("\n\n\nContent: %s\n\n\n", content);
 		content = strtok(NULL, "\r\n"); // Host: localhost:4221
 		content = strtok(NULL, "\r\n"); // User-Agent: curl/7.81.0
 		content = strtok(NULL, "\r\n"); // Accept: */*
 		content = strtok(NULL, "\r\n"); // Content-Length: 51
-		printf("\n\n\nContent: %s\n\n\n", content);
 		content = strtok(NULL, "\r\n"); // Content-Type: application/x-www-form-urlencoded
-		printf("\n\n\nContent: %s\n\n\n", content);
 		content = strtok(NULL, "\r\n"); // Content-Type: application/x-www-form-urlencoded
-		printf("\n\n\nContent: %s\n\n\n", content);
 
 		printf("\n---\nCreate a file %s with content length: %d\n\n %s\n---\n", filename, contentLength, content);
 
@@ -401,7 +399,6 @@ void handle_connection(int client_fd)
 		fclose(fp);
 
 		// Return contents
-		// Return contents
 		char response[1024];
 		sprintf(response, "HTTP/1.1 201 Created\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", contentLength, content);
 		printf("Sending response: %s\n", response);
@@ -423,3 +420,4 @@ void handle_connection(int client_fd)
 		return;
 	}
 }
+
